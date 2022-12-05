@@ -8,6 +8,10 @@ if __name__ == '__main__':
 
     parser.add_argument("--env", type=str, required=True, help="Environment name (Gym environment)")
     parser.add_argument("--augment", type=int, default=0, help="Use state augmentation when forwarding neural networks (shifting images for instance)")
+    parser.add_argument("--max_episodes", type=int, help="If set, maximum number of episodes to execute")
+    parser.add_argument("--max_timesteps", type=int, help="If set, maximum number of time-steps to execute")
+    parser.add_argument("--save", type=str, help="File-name in which to save (actor, critic) after every episode")
+    parser.add_argument("--load", type=str, help="File-name from which to load (actor, critic) before learning")
 
     parser.add_argument("--hidden", type=int, default=64, help="Number of hidden layers in the policy, guide and critic")
     parser.add_argument("--layers", type=int, default=1, help="Number of layers in the policy, guide and critic")

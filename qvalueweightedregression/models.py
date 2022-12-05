@@ -34,13 +34,29 @@ class Function(torch.nn.Module):
     def forward(self, x):
         return self.fwd(x)
 
-class Critic:
+class BaseActorCritic:
+    def __init__(self, observation_space, action_space, args):
+        self.is_discrete = isinstance(action_space, gym.spaces.Discrete)
+        self.args = args
+
+    def optimizer(self):
+        return self.function.optimizer
+
+    def load_state_dict(self, d):
+        self.function.load_state_dict(d)
+
+    def state_dict(self):
+        return self.function.state_dict()
+
+    def copy(self, other):
+        self.load_state_dict(other.state_dict())
+
+class Critic(BaseActorCritic):
     """ Critic that maps an observation and action to a Q-Value
     """
 
     def __init__(self, observation_space, action_space, args):
-        # Discrete or continuous actions
-        self.is_discrete = isinstance(action_space, gym.spaces.Discrete)
+        super().__init__(observation_space, action_space, args)
 
         if self.is_discrete:
             # Produce one Q-Value per action
@@ -52,8 +68,6 @@ class Critic:
                 'act': action_space
             })
             self.function = Function(observation_space, (1,), args)
-
-        self.optimizer = self.function.optimizer
 
     def get_qvalues(self, obs, act):
         if self.is_discrete:
@@ -67,14 +81,11 @@ class Critic:
 
             return self.function(x)
 
-    def copy(self, other):
-        self.function.load_state_dict(other.function.state_dict())
-
-class Actor:
+class Actor(BaseActorCritic):
     """ Stochastic actor that maps an observation to the parameters of a distribution over actions
     """
     def __init__(self, observation_space, action_space, args):
-        self.is_discrete = isinstance(action_space, gym.spaces.Discrete)
+        super().__init__(observation_space, action_space, args)
 
         if self.is_discrete:
             # Produce logits
@@ -85,8 +96,6 @@ class Actor:
 
             self.mid = torch.from_numpy((action_space.low + action_space.high) / 2.)
             self.scale = torch.from_numpy((action_space.high - action_space.low) / 2.)
-
-        self.optimizer = self.function.optimizer
 
     def get_dist(self, obs):
         if self.is_discrete:

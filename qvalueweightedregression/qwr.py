@@ -28,10 +28,19 @@ class QWR:
         self.actor = Actor(env.observation_space, env.action_space, args)
         self.critic = Critic(env.observation_space, env.action_space, args)
         self.target = Critic(env.observation_space, env.action_space, args)
-        self.target.copy(self.critic)
 
         # Experience buffer
         self.buffer = ExperienceBuffer(env.observation_space, env.action_space, args)
+
+        # Load the weights of the actor and critic?
+        if args.load is not None:
+            print('Loading', args.load)
+
+            aw, cw = torch.load(args.load)
+            self.actor.load_state_dict(aw)
+            self.critic.load_state_dict(cw)
+
+        self.target.copy(self.critic)
 
     def get_qvalue_samples(self, s, dist, n_samples):
         repeats = [1] * len(s.shape)
@@ -69,9 +78,9 @@ class QWR:
             loss = torch.mean((current_qvalues - target_qvalues) ** 2)
             print('QL', loss.item(), current_qvalues[0].item(), target_qvalues[0].item())
 
-            self.critic.optimizer.zero_grad()
+            self.critic.optimizer().zero_grad()
             loss.backward()
-            self.critic.optimizer.step()
+            self.critic.optimizer().step()
 
         self.target.copy(self.critic)
 
@@ -111,9 +120,9 @@ class QWR:
 
             print('AL', loss.item())
 
-            self.actor.optimizer.zero_grad()
+            self.actor.optimizer().zero_grad()
             loss.backward()
-            self.actor.optimizer.step()
+            self.actor.optimizer().step()
 
     def learn(self):
         ep_number = 0
@@ -143,9 +152,22 @@ class QWR:
                 ts_number += 1
                 state = next_state
 
+                if (self.args.max_timesteps is not None) and ts_number >= self.args.max_timesteps:
+                    return
+
                 # Perform learning if now is the time for it
                 if (ts_number % self.args.erfreq) == 0 and ts_number > 1000:
                     self.train_epoch()
 
+                    # Save the latest version of the actor and critic weights
+                    if self.args.save is not None:
+                        aw = self.actor.state_dict()
+                        cw = self.critic.state_dict()
+
+                        torch.save((aw, cw), self.args.save)
+
             print('R', ep_number, ts_number, ret)
             sys.stdout.flush()
+
+            if (self.args.max_episodes is not None) and ep_number >= self.args.max_episodes:
+                return
