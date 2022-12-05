@@ -93,7 +93,7 @@ def objective(trial):
     # Start the process
     print('PROCESS', process_args)
     p = subprocess.Popen(process_args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, encoding='utf8')
-    value = -10000.0
+    value = None
     episode_index = 0
 
     for line in p.stdout:
@@ -101,8 +101,13 @@ def objective(trial):
             continue
 
         parts = line.strip().split()
-        value = float(parts[stdout_column])
+        v = float(parts[stdout_column])
         episode_index += 1
+
+        if value is None:
+            value = v
+        else:
+            value = 0.9 * value + 0.1 * v
 
         if episode_index > 50:
             trial.report(value, episode_index)
