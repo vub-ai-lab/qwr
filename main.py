@@ -23,8 +23,8 @@ if __name__ == '__main__':
     parser.add_argument("--erfreq", type=int, default=1, help="How often to do learning")
 
     parser.add_argument("--action_samples", type=int, default=8, help="Number of actions sampled when computing argmaxes")
+    parser.add_argument("--topk", type=int, default=4, help="Out of action_samples, how many of the highest-scoring ones are used to compute the value of the next state")
     parser.add_argument("--gamma", type=float, default=0.99, help="Discount factor")
-    parser.add_argument("--tau", type=float, default=1.0, help="Temperature of the log-sum-exp operation used to compute target Q-Values")
     parser.add_argument("--beta", type=float, default=1.0, help="Temperature used when computing dzeta values (exp(Advantage / beta))")
 
     args = parser.parse_args()

@@ -70,9 +70,11 @@ class QWR:
                 # Target values based on Q(s', a' ~ next_dist)
                 next_qvalues, _ = self.get_qvalue_samples(next_states, next_dist, n_samples)    # Shape (n_samples, batch_size)
 
-                # log-sum-exp
-                lse = self.args.tau * torch.logsumexp(next_qvalues / self.args.tau, dim=0)
-                target_qvalues = rewards.flatten() + not_dones.flatten() * self.args.gamma * lse
+                # Top-K
+                topk = torch.topk(next_qvalues, self.args.topk, dim=0, sorted=False).values     # Shape (k, batch_size)
+                next_qvalues = topk.mean(0)                                                     # Shape (batch_size,)
+
+                target_qvalues = rewards.flatten() + not_dones.flatten() * self.args.gamma * next_qvalues
 
             current_qvalues = self.critic.get_qvalues(states, actions).flatten()
             loss = torch.mean((current_qvalues - target_qvalues) ** 2)
