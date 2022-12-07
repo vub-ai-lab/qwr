@@ -92,30 +92,53 @@ class QWR:
 
             with torch.no_grad():
                 # State values based on the average of Q(s, a ~ dist)
-                qvalues, sampled_actions = self.get_qvalue_samples(states, dist, n_samples)                   # Shape (n_samples, batch_size)
-                values = qvalues.mean(0, keepdim=True)                                                   # Shape (1, batch_size)
-
-                advantages = qvalues - values                       # Shape (n_samples, batch_size)
-                dzetas = torch.exp(advantages / self.args.beta)     # Shape (n_samples, batch_size)
-                dzetas = torch.clip(dzetas, 1e-2, 20.0)
+                qvalues, sampled_actions = self.get_qvalue_samples(states, dist, n_samples)                   # Shape (n_samples, batch_size) and (n_samples, batch_size, *action_shape)
 
                 inverted_sampled_actions = self.actor.invert_actions(sampled_actions)                    # Shape (batch_size * n_samples, *action_shape)
                 inverted_sampled_actions = torch.unflatten(inverted_sampled_actions, 0, (n_samples, -1)) # Shape (n_samples, batch_size, *action_shape)
 
-            log_times_dzeta = []
-            current_dist = self.actor.get_dist(states)
+                if False:
+                    values = qvalues.mean(0, keepdim=True)                                                   # Shape (1, batch_size)
 
-            for i in range(n_samples):
-                sl = inverted_sampled_actions[i, ...]               # Shape (batch_size, *action_shape)
-                log_prob = current_dist.log_prob(sl)
+                    advantages = qvalues - values                       # Shape (n_samples, batch_size)
+                    dzetas = torch.exp(advantages / self.args.beta)     # Shape (n_samples, batch_size)
+                    dzetas = torch.clip(dzetas, 1e-2, 20.0)
+                else:
+                    R = torch.arange(qvalues.shape[1])
 
-                if not self.is_discrete:
-                    log_prob = log_prob.sum(tuple(range(1, len(sl.shape))))    # Shape (batch_size,)
+                    topk_indexes = torch.topk(qvalues, self.args.topk, dim=0, sorted=False).indices          # Shape (k, batch_size)
+                    topk_actions = inverted_sampled_actions[topk_indexes, R]                                 # Shape (k, batch_size, *action_shape)
 
-                dzeta = dzetas[i]                                   # Shape (batch_size,)
-                log_times_dzeta.append(log_prob * dzeta)            # Shape (batch_size,)
+            if False:
+                log_times_dzeta = []
+                current_dist = self.actor.get_dist(states)
 
-            loss = -torch.mean(torch.cat(log_times_dzeta))
+                for i in range(n_samples):
+                    sl = inverted_sampled_actions[i, ...]               # Shape (batch_size, *action_shape)
+                    log_prob = current_dist.log_prob(sl)
+
+                    if not self.is_discrete:
+                        log_prob = log_prob.sum(tuple(range(1, len(sl.shape))))    # Shape (batch_size,)
+
+                    dzeta = dzetas[i]                                   # Shape (batch_size,)
+                    log_times_dzeta.append(log_prob * dzeta)            # Shape (batch_size,)
+
+                loss = -torch.mean(torch.cat(log_times_dzeta))
+            else:
+                # Increase the probability of topk_actions
+                current_dist = self.actor.get_dist(states)
+                log_probs = []
+
+                for i in range(self.args.topk):
+                    top_actions = topk_actions[i, ...]                  # Shape (batch_size, *action_shape)
+                    log_prob = current_dist.log_prob(top_actions)
+
+                    if not self.is_discrete:
+                        log_prob = log_prob.sum(tuple(range(1, len(top_actions.shape))))    # Shape (batch_size,)
+
+                    log_probs.append(log_prob)
+
+                loss = -torch.mean(torch.cat(log_probs))
 
             if loss.isnan().any() or loss.isinf().any():
                 continue

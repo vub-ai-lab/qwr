@@ -77,6 +77,7 @@ class ExperienceBuffer:
         self.rewards[self.er_index, 0] = reward
         self.not_dones[self.er_index, 0] = float(not done)
 
+        # TODO: Randomize er_index when the buffer is full
         self.er_index = (self.er_index + 1) % self.args.erpoolsize
         self.er_count = min(self.args.erpoolsize, self.er_count + 1)
 
