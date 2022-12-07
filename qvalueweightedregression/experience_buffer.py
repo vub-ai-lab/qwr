@@ -77,12 +77,16 @@ class ExperienceBuffer:
         self.rewards[self.er_index, 0] = reward
         self.not_dones[self.er_index, 0] = float(not done)
 
-        # TODO: Randomize er_index when the buffer is full
-        self.er_index = (self.er_index + 1) % self.args.erpoolsize
         self.er_count = min(self.args.erpoolsize, self.er_count + 1)
 
+        if self.er_count < self.args.erpoolsize:
+            self.er_index = self.er_count
+        else:
+            # Full buffer, replace a random old experience
+            self.er_index = torch.randint(self.args.erpoolsize, size=tuple()).item()
+
     def num_slices(self, batch_size):
-        self.indexes = torch.arange(self.er_count).split(batch_size)
+        self.indexes = torch.randperm(self.er_count).split(batch_size)
 
         return len(self.indexes)
 
